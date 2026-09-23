@@ -1,0 +1,49 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import{SCENES,TREASURE_SCENES,STAGES,findPath,distance,walkable,validSave,makeSave,bonusReady}from '../dist/engine.js';
+import{snakeStep,SNAKE_BLOCKS,SNAKE_BEACONS,scrambleTraffic,slideVehicle,pipeSolution,tracePipes,ROTATE_MASK,BOX_START,pushBox,boxesWon,toggleCircuit,MIRROR_SOLUTION,traceLight,flightGate}from '../dist/rules.js';
+import{createSnakeRun,enqueueSnakeTurn,advanceSnakeClock,SNAKE_MODES}from '../dist/rules.js';
+test('relaxed snake speed gives 400 ms per tile',()=>{let s={...createSnakeRun(),running:true};s=advanceSnakeClock(s,.39);assert.equal(s.body[0],72);s=advanceSnakeClock(s,.011);assert.equal(s.body[0],73);assert.equal(SNAKE_MODES.normal.interval,.4);});
+test('holding the current direction cannot swallow a new turn',()=>{let s=createSnakeRun();for(let i=0;i<10;i++)s=enqueueSnakeTurn(s,1);assert.deepEqual(s.turns,[]);s=enqueueSnakeTurn(s,-9);assert.deepEqual(s.turns,[-9]);});
+test('two quick turns are buffered and executed in order',()=>{let s={...createSnakeRun(),body:[13],trail:[13],running:true};s=enqueueSnakeTurn(s,-9);s=enqueueSnakeTurn(s,1);assert.deepEqual(s.turns,[-9,1]);s=advanceSnakeClock(s,.4);assert.equal(s.body[0],4);s=advanceSnakeClock(s,.4);assert.equal(s.body[0],5);assert.equal(s.dead,false);});
+test('wall warning gives a 300 ms rescue window without crossing the wall',()=>{let s={...createSnakeRun(),body:[80,79,78],trail:[78,79,80],running:true};s=advanceSnakeClock(s,.4);assert.equal(s.body[0],80);assert.equal(s.dead,false);assert.equal(s.graceLeft,.3);s=advanceSnakeClock(s,.25);s=enqueueSnakeTurn(s,-9);s=advanceSnakeClock(s,.001);assert.equal(s.body[0],71);assert.equal(s.graceLeft,null);assert.equal(s.dead,false);});
+test('unrescued collisions still fail and reversal remains prohibited',()=>{let s={...createSnakeRun(),body:[80,79,78],trail:[78,79,80],running:true};assert.equal(enqueueSnakeTurn(s,-1),s);s=advanceSnakeClock(s,.4);s=advanceSnakeClock(s,.29);assert.equal(s.dead,false);s=advanceSnakeClock(s,.011);assert.equal(s.dead,true);assert.equal(s.body[0],80);});
+test('all story goals and eight chests are reachable from scene spawns',()=>{for(const [stage,t]of STAGES.entries()){const p=findPath(SCENES[t.scene].spawn,t,t.scene,stage);assert.ok(p.length&&distance(p.at(-1),t)<30,`stage ${stage}`);assert.ok(p.every(v=>walkable(v.x,v.y,t.scene,stage)));}for(const k of TREASURE_SCENES){const s=SCENES[k],p=findPath(s.spawn,s.chest,k,s.unlock);assert.ok(p.length&&distance(p.at(-1),s.chest)<30,k);}});
+test('city progression and solid furniture remain enforced',()=>{assert.equal(walkable(303,414,'city',1),false);assert.equal(walkable(339,302,'city',2),false);assert.equal(walkable(225,520,'museum'),false);assert.equal(walkable(357,525,'museum'),false);});
+test('v1 saves migrate without inventing treasure or completion',()=>{const s=validSave({version:1,stage:8,player:{x:NaN,y:0},collectibles:['evil','city','city']});assert.equal(s.scene,'terrace');assert.equal(s.completed,false);assert.deepEqual(s.treasures,[]);assert.deepEqual(s.collectibles,['city']);assert.ok(walkable(s.player.x,s.player.y,s.scene));});
+test('v2 return visits, ingredients and records survive a round trip',()=>{const s=validSave(makeSave(10,{x:300,y:850},50,true,['moon'],{scene:'city',treasures:TREASURE_SCENES,completed:true,bonusSeen:true,records:{snake:42}}));assert.equal(s.scene,'city');assert.equal(s.bonusSeen,true);assert.equal(s.records.snake,42);assert.equal(bonusReady(s),true);assert.equal(validSave({version:2,stage:99}),null);});
+test('bonus requires BOTH main completion and each distinct ingredient',()=>{const all=TREASURE_SCENES;assert.equal(bonusReady({completed:false,treasures:all}),false);assert.equal(bonusReady({completed:true,treasures:all.slice(1)}),false);assert.equal(bonusReady({completed:true,treasures:Array(7).fill('city')}),false);assert.equal(bonusReady({completed:true,treasures:all}),true);});
+test('eighth chest is required for new rewards without revoking old rewards',()=>{const seven=TREASURE_SCENES.filter(k=>k!=='entrance');assert.equal(TREASURE_SCENES.length,8);const old=validSave({version:2,stage:10,scene:'museum',treasures:seven,completed:true,bonusSeen:true});assert.equal(old.bonusSeen,true);assert.equal(old.treasures.includes('entrance'),false);assert.equal(bonusReady(old),false);const unclaimed=validSave({...old,bonusSeen:false});assert.equal(unclaimed.bonusSeen,false);assert.equal(bonusReady({...unclaimed,treasures:[...seven,'entrance']}),true);const roundTrip=validSave(makeSave(old.stage,old.player,old.elapsed,old.empathy,old.collectibles,old));assert.equal(roundTrip.bonusSeen,true);});
+test('entrance treasure and quiz records persist without rolling back later quests',()=>{const s=validSave({version:2,stage:6,scene:'entrance',treasures:['entrance','entrance'],records:{quiz:1}});assert.equal(s.stage,6);assert.equal(s.scene,'entrance');assert.deepEqual(s.treasures,['entrance']);assert.equal(s.records.quiz,1);});
+test('unfinished reunion can resume but cannot be forged before main completion',()=>{const s=validSave({version:2,stage:10,completed:true,endingPending:true,treasures:TREASURE_SCENES,bonusSeen:false});assert.equal(s.endingPending,true);assert.equal(s.bonusSeen,false);assert.equal(validSave({version:2,stage:9,completed:false,endingPending:true}).endingPending,false);});
+test('corrupt and locked-scene save values are repaired',()=>{const s=validSave({version:2,stage:0,scene:'factory',player:{x:Infinity,y:0},treasures:['city','city','factory','invalid'],bonusSeen:true,completed:true,records:{snake:NaN,evil:1}});assert.equal(s.scene,'city');assert.deepEqual(s.treasures,['city']);assert.equal(s.completed,false);assert.equal(s.bonusSeen,false);assert.deepEqual(s.records,{});});
+test('snake has a collision-free full solution with all checkpoints',()=>{const start={body:[72],collected:[],trail:[72]};const q=[start],seen=new Set();let solution;for(let h=0;h<q.length&&h<200000;h++){const s=q[h];if(s.won){solution=s;break;}for(const dir of [-1,1,-9,9]){if(s.body.length>1&&s.body[1]-s.body[0]===dir)continue;const a=snakeStep(s,dir);if(a.dead)continue;const k=a.body.join(',')+':'+a.collected.toSorted().join(',');if(!seen.has(k)){seen.add(k);q.push(a);}}}assert.ok(solution,'snake unsolvable');assert.equal(solution.collected.length,3);assert.ok(solution.trail.length>20);});
+test('snake blocks wrapping, obstacles and body collision',()=>{const base={body:[8],collected:[],trail:[8]};assert.equal(snakeStep(base,1).dead,true);assert.equal(snakeStep({...base,body:[9]},1).dead,true);assert.equal(snakeStep({...base,body:[40,41,42,33]},1).dead,true);});
+test('traffic requires at least ten separate vehicle slides and remains solvable',()=>{const b=scrambleTraffic(127),q=[[b,0]],seen=new Set();let solution;for(let h=0;h<q.length&&h<200000;h++){const[b,n]=q[h];if(b[0].x===4){solution=n;break;}for(let i=0;i<b.length;i++)for(let d=-5;d<=5;d++){const a=slideVehicle(b,i,d);if(!a)continue;const k=a.map(v=>v.x+v.y*6).join(',');if(!seen.has(k)){seen.add(k);q.push([a,n+1]);}}}assert.ok(solution>=10&&solution<30);assert.equal(slideVehicle(b,0,6),null);});
+test('water has a leak-free route and rejects a disconnected inlet',()=>{const board=pipeSolution();assert.equal(tracePipes(board).won,true);board[20]=ROTATE_MASK(board[20]);assert.equal(tracePipes(board).won,false);});
+test('Sokoban energy boxes can be solved and illegal pushes are blocked',()=>{let s=BOX_START;for(const key of 'LUURDRUULDLU'){s=pushBox(s,{L:-1,R:1,U:-7,D:7}[key]);assert.ok(s);}assert.ok(boxesWon(s));assert.equal(pushBox({player:8,boxes:[9]},-7),null);});
+test('assembly scramble is reversible and switches orthogonal neighbors only',()=>{let b=Array(16).fill(true);for(const p of [0,2,5,6,11,15])b=toggleCircuit(b,p);assert.ok(b.some(x=>!x));for(const p of [0,2,5,6,11,15])b=toggleCircuit(b,p);assert.ok(b.every(Boolean));assert.equal(toggleCircuit(Array(16).fill(false),0).filter(Boolean).length,3);});
+test('eight-mirror optics reaches the painting and does not solve by default',()=>{assert.equal(traceLight(MIRROR_SOLUTION).won,true);assert.equal(traceLight(Array(8).fill('/')).won,false);});
+test('alternating flight gates leave no permanent safe column',()=>{let min=0,max=320;for(let i=0;i<12;i++){const g=flightGate(i,10);min=Math.max(min,g.center-g.gap/2+17);max=Math.min(max,g.center+g.gap/2-17);}assert.ok(min>max);for(let i=1;i<12;i++){assert.ok(Math.abs(flightGate(i,10).center-flightGate(i-1,10).center)<245*1.3,'gates must be reachable at keyboard speed');}});
+
+test('story transitions survive saves only at their matching quest stage',()=>{
+ for(const [storyPending,stage]of [['drain',3],['delivery',9],['painting',10]]){
+  const s=validSave({version:2,stage,storyPending});assert.equal(s.storyPending,storyPending);
+  assert.equal(validSave(makeSave(s.stage,s.player,s.elapsed,s.empathy,s.collectibles,s)).storyPending,storyPending);
+  assert.equal(validSave({version:2,stage:0,storyPending}).storyPending,null);
+ }
+ assert.equal(validSave({version:2,stage:10,completed:true,storyPending:'painting'}).storyPending,'painting');
+ assert.equal(validSave({version:2,stage:10,storyPending:'unknown'}).storyPending,null);
+ assert.equal(validSave({version:2,stage:9}).storyPending,null);
+});
+
+test('flood blocks the path before drainage while pump and treasure stay reachable',()=>{
+ const scene=SCENES.water;
+ assert.ok(scene.spawn.y>704);
+ for(let x=0;x<=540;x+=12)assert.equal(walkable(x,660,'water',2),false);
+ assert.deepEqual(findPath(scene.spawn,{x:350,y:300},'water',2),[]);
+ const cleared=findPath(scene.spawn,{x:350,y:300},'water',3);
+ assert.ok(cleared.length&&distance(cleared.at(-1),{x:350,y:300})<20);
+ const old=validSave({version:2,stage:2,scene:'water',player:{x:276,y:600}});
+ assert.deepEqual(old.player,scene.spawn);
+});

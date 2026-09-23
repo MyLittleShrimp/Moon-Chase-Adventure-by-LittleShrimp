@@ -1,0 +1,10 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>媒体检查（仅本地）</title>
+<style>body{font:16px system-ui;background:#081522;color:#eee;padding:24px}button{font:inherit;padding:12px;margin:6px}li{padding:4px}audio{display:block}output{display:block;padding:15px}</style>
+<h1>音乐与音效检查</h1><p>仅用于本地验收，不随网站发布。</p>
+<button id="start">启动音乐并检查全部音效</button><button id="next">下一首</button><button id="mute">静音 / 恢复</button><output id="result">待检查</output><audio id="music" controls></audio><ul id="sounds"></ul>
+<script type="module">
+import{GameAudio,SOUND_NAMES}from '/audio.js';
+const audio=new GameAudio({music:document.querySelector('audio'),storage:{getItem:()=>null,setItem(){}}});
+document.querySelector('#start').onclick=async()=>{audio.start();const list=document.querySelector('#sounds');list.innerHTML='';let success=0;await Promise.all(SOUND_NAMES.map(async name=>{const row=document.createElement('li');row.textContent=name;list.append(row);try{const b=await audio.buffer(name);if(!b)throw Error();success++;row.textContent=`${name} · ${b.duration.toFixed(2)} 秒 · 已解码`;const button=document.createElement('button');button.textContent='试听';button.onclick=()=>audio.effect(name);row.append(button);}catch{row.textContent+=' · 失败';}}));document.querySelector('#result').textContent=`${success} / ${SOUND_NAMES.length} 个音效成功解码`;};
+document.querySelector('#next').onclick=()=>audio.nextTrack();document.querySelector('#mute').onclick=()=>audio.toggle();
+</script></html>

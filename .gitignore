@@ -1,0 +1,11 @@
+node_modules/
+.openai/
+.sites-runtime/
+test-results/
+.env
+.env.*
+!.env.example
+*.log
+*.zip
+.DS_Store
+Thumbs.db

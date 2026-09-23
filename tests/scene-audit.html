@@ -1,0 +1,7 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>仅本地 · 宝箱落地检查</title>
+<style>body{margin:16px;background:#071827;color:#e8ddbb;font:16px system-ui}main{display:flex;flex-wrap:wrap;gap:16px}article{width:270px}canvas{width:270px;height:480px;border:1px solid #456}button{padding:8px;margin-bottom:10px}</style>
+<h1>宝箱落地检查 · 本地验收</h1><button id="toggle">切换全部开箱状态</button><main></main>
+<script type="module">
+import{World}from '/world.js';import{SCENES}from '/engine.js';let opened=false;const views=[];
+for(const [scene,s]of Object.entries(SCENES)){const item=document.createElement('article');item.innerHTML=`<h2>${s.name}</h2><canvas width="540" height="960"></canvas>`;document.querySelector('main').append(item);const world=new World(item.querySelector('canvas'));await world.ready;views.push({world,scene,s});}function draw(){for(const{world,scene,s}of views)world.draw({started:true,ending:false,stage:s.unlock,scene,player:s.spawn,treasures:opened?[scene]:[],path:[],completed:true},0);}draw();document.querySelector('#toggle').onclick=()=>{opened=!opened;draw();};
+</script></html>

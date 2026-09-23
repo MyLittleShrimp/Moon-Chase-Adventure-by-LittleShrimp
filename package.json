@@ -1,0 +1,13 @@
+{
+  "name": "moon-chase-adventure",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test --test-isolation=none tests/*.test.js",
+    "start": "node server.js"
+  },
+  "description": "一款中秋主题的像素风网页冒险游戏，融合城市探索、八种益智挑战与隐藏收集，支持电脑和手机浏览器。",
+  "engines": {
+    "node": ">=24"
+  }
+}
