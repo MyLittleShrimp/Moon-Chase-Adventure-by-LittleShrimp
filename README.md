@@ -103,10 +103,13 @@ npm test
 
 正式部署时，将 **`dist/` 内的内容作为网站根目录**，放到支持静态文件的托管服务即可。`npm start` 仅用于本地预览；本仓库不包含云端账号配置，也不要求购买域名。
 
+**部署到 Vercel**：仓库已提供 `vercel.json`。导入时 Root Directory 保持仓库根目录，Framework Preset 为 **Other**，Output Directory 为 **`dist`**，跳过安装与构建，无需环境变量。详细步骤见 [Vercel 部署说明](docs/VERCEL.md)。
+
 ## 文档与素材
 
 - [玩家说明](docs/GAME_GUIDE.md)
 - [开发说明](docs/DEVELOPMENT.md)
+- [Vercel 部署说明](docs/VERCEL.md)
 - [项目交接](docs/HANDOFF.md)
 - [宣传片与截图](docs/PROMO.md)
 - [素材与授权说明](docs/ASSETS.md)
