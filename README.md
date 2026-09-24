@@ -42,7 +42,11 @@ git clone https://github.com/MyLittleShrimp/Moon-Chase-Adventure-by-LittleShrimp
 cd Moon-Chase-Adventure-by-LittleShrimp
 ```
 
-在含有 `package.json` 的目录打开终端：
+**Windows 推荐：直接双击根目录的 `启动游戏.cmd`。** 启动器会自动启动服务并打开默认浏览器，不需要输入命令。游玩时保留启动窗口（可以最小化），结束后关闭窗口即可停止服务。再次双击会复用同一目录已运行的游戏服务。
+
+默认使用 4188；如果端口被其他项目占用，会自动尝试 4189～4219。请以自动打开的地址为准。浏览器存档按地址保存，端口变化时可能暂时看不到原存档。
+
+也可以在含有 `package.json` 的目录打开终端：
 
 ```bash
 npm start
@@ -87,6 +91,8 @@ dist/                 可直接部署的游戏源码与完整素材
 docs/                 开发、交接、素材说明与实机截图
 tests/                规则测试及本地检查工具
 server.js             本地启动入口（默认 4188）
+启动游戏.cmd          Windows 双击启动入口
+launcher.js           自动打开浏览器、端口避让及重复启动处理
 static-server.js       静态资源及视频 Range 请求支持
 QUIZ_SOURCES.md        题库来源与讲解（含答案）
 ```
