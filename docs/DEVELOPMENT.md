@@ -4,7 +4,7 @@
 
 - Node.js 24 或更新版本；交付时使用 Node.js 24.14。
 - `npm start`：启动静态预览，默认端口 4188。
-- `npm test`：运行 41 项自动测试。
+- `npm test`：运行 42 项自动测试。
 - 无 npm 第三方依赖、无构建过程。`dist/` 是可编辑的源码，不能加入忽略列表。
 - 如果 4188 被其他项目占用，可通过环境变量 `PORT` 指定其他端口；Windows PowerShell 示例：`$env:PORT=4189`，再执行 `npm start`。
 

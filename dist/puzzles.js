@@ -37,12 +37,22 @@ export function createPuzzles(api){
  }
  function snake(fast=false){
   frame('城市孪生 / 障碍贪吃蛇','把走过的路，变成航线','方向键 / WASD 或下方方向键转弯。经过三个信标，再抵达右上角出口。可以提前输入连续转弯；撞到障碍前会短暂停住，此时转向仍能避开。','<div class="mode-select"><button id="normal-snake">舒缓航速</button><button id="fast-snake">挑战航速</button></div><div id="snake-grid" class="board snake-board"></div><button class="gold-button" id="launch-snake">开始行进</button><div id="dpad" class="dpad"></div>');
-  let s=createSnakeRun(),done=false;const mode=fast?SNAKE_MODES.challenge:SNAKE_MODES.normal;
+  let s=createSnakeRun(),done=false,paused=false;const mode=fast?SNAKE_MODES.challenge:SNAKE_MODES.normal;
+  const pause=document.createElement('button');pause.id='pause-snake';pause.className='secondary-button';pause.type='button';$('#leave-puzzle').before(pause);
   const board=$('#snake-grid');board.innerHTML=Array.from({length:81},(_,i)=>`<span class="tile ${SNAKE_BLOCKS.includes(i)?'wall':''}"></span>`).join('');
   const arrows={'-1':'←','1':'→','-9':'↑','9':'↓'};
-  function render(){[...board.children].forEach((el,i)=>{el.classList.toggle('snake-body',s.body.includes(i));el.classList.toggle('snake-head',s.body[0]===i);el.classList.toggle('trail',s.trail.includes(i)&&!s.body.includes(i));el.textContent=s.body[0]===i?arrows[s.turns[0]??s.direction]:i===8?'出':SNAKE_BEACONS.includes(i)&&!s.collected.includes(i)?'◇':'';});board.classList.toggle('collision-warning',s.graceLeft!==null&&!s.dead);status(s.graceLeft!==null&&!s.dead?'前方有障碍 · 现在转向还能避开':`${fast?'挑战':'舒缓'} · 信标 ${s.collected.length}/3 · 航线 ${s.trail.length-1} 格${s.turns.length?' · 已接收 '+s.turns.map(d=>arrows[d]).join(' '):''}`);}
-  dpad(d=>{if(done)return;s=enqueueSnakeTurn(s,{left:-1,right:1,up:-9,down:9}[d]);render();},true);
-  $('#launch-snake').onclick=()=>{$('#modal').querySelector('p').hidden=true;$('#modal').querySelector('.mode-select').hidden=true;$('#launch-snake').hidden=true;$('#modal').scrollTop=$('#modal').scrollHeight;s={...s,running:true};};$('#normal-snake').onclick=()=>snake(false);$('#fast-snake').onclick=()=>snake(true);$(fast?'#fast-snake':'#normal-snake').classList.add('selected');$('#reset-puzzle').onclick=()=>snake(fast);render();
+  function render(){
+   [...board.children].forEach((el,i)=>{el.classList.toggle('snake-body',s.body.includes(i));el.classList.toggle('snake-head',s.body[0]===i);el.classList.toggle('trail',s.trail.includes(i)&&!s.body.includes(i));el.textContent=s.body[0]===i?arrows[s.turns[0]??s.direction]:i===8?'出':SNAKE_BEACONS.includes(i)&&!s.collected.includes(i)?'◇':'';});
+   board.classList.toggle('collision-warning',s.graceLeft!==null&&!s.dead&&!paused);
+   pause.textContent=paused?'继续游戏':'暂停游戏';pause.disabled=(!s.running&&!paused)||s.dead||s.won;
+   $('#dpad').querySelectorAll('button').forEach(b=>{b.disabled=paused||s.dead||s.won;if(b.disabled)b.classList.remove('pressed');});
+   const progress=`${fast?'挑战':'舒缓'} · 信标 ${s.collected.length}/3 · 航线 ${s.trail.length-1} 格`;
+   status(paused?`已暂停 · 信标 ${s.collected.length}/3 · 航线 ${s.trail.length-1} 格`:s.graceLeft!==null&&!s.dead?'前方有障碍 · 现在转向还能避开':`${progress}${s.turns.length?' · 已接收 '+s.turns.map(d=>arrows[d]).join(' '):''}`);
+  }
+  dpad(d=>{if(done||paused)return;s=enqueueSnakeTurn(s,{left:-1,right:1,up:-9,down:9}[d]);render();},true);
+  // Preserve the partial movement tick, collision grace and buffered turns across a pause.
+  pause.onclick=()=>{if(pause.disabled||done)return;paused=!paused;s={...s,running:!paused};render();};
+  $('#launch-snake').onclick=()=>{$('#modal').querySelector('p').hidden=true;$('#modal').querySelector('.mode-select').hidden=true;$('#launch-snake').hidden=true;$('#modal').scrollTop=$('#modal').scrollHeight;s={...s,running:true};render();};$('#normal-snake').onclick=()=>snake(false);$('#fast-snake').onclick=()=>snake(true);$(fast?'#fast-snake':'#normal-snake').classList.add('selected');$('#reset-puzzle').onclick=()=>snake(fast);render();
   setTick(dt=>{if(!s.running||done)return;const before=s;s=advanceSnakeClock(s,dt,mode);if(s.graceLeft!==null&&before.graceLeft===null)sound('collision_warning');if(s.collected.length>before.collected.length)sound('snake_beacon');render();if(s.dead){done=true;board.classList.remove('collision-warning');status('没来得及避开。可以提前转向，或在障碍前的停顿中补救。');sound('soft_failure');return;}if(s.won){done=true;win('snake',s.trail.length-1,1,`已将 ${s.trail.length-1} 格轨迹保存为城市航线。`);}});
  }
 

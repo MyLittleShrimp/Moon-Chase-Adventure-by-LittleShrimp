@@ -5,6 +5,22 @@ import{snakeStep,SNAKE_BLOCKS,SNAKE_BEACONS,scrambleTraffic,slideVehicle,pipeSol
 import{trafficSlideLimits}from '../dist/rules.js';
 import{createSnakeRun,enqueueSnakeTurn,advanceSnakeClock,SNAKE_MODES}from '../dist/rules.js';
 test('relaxed snake speed gives 400 ms per tile',()=>{let s={...createSnakeRun(),running:true};s=advanceSnakeClock(s,.39);assert.equal(s.body[0],72);s=advanceSnakeClock(s,.011);assert.equal(s.body[0],73);assert.equal(SNAKE_MODES.normal.interval,.4);});
+test('pausing freezes the partial tick, queued turns and collision grace until resume',()=>{
+ for(const mode of Object.values(SNAKE_MODES)){
+  let s=advanceSnakeClock({...createSnakeRun(),body:[13],trail:[13],running:true},mode.interval-.02,mode);
+  s=enqueueSnakeTurn(enqueueSnakeTurn(s,-9),1);
+  const paused={...s,running:false};
+  assert.equal(advanceSnakeClock(paused,60,mode),paused);
+  s=advanceSnakeClock({...paused,running:true},.01,mode);assert.equal(s.body[0],13);
+  s=advanceSnakeClock(s,.011,mode);assert.equal(s.body[0],4);assert.deepEqual(s.turns,[1]);
+  s=advanceSnakeClock(s,mode.interval,mode);assert.equal(s.body[0],5);
+  s=advanceSnakeClock({...createSnakeRun(),body:[80,79,78],trail:[78,79,80],running:true},mode.interval,mode);
+  s=advanceSnakeClock(s,mode.grace/2,mode);
+  const warning={...s,running:false};assert.equal(advanceSnakeClock(warning,60,mode),warning);
+  s=advanceSnakeClock({...warning,running:true},mode.grace/4,mode);assert.equal(s.dead,false);assert.ok(s.graceLeft>0);
+  s=advanceSnakeClock(enqueueSnakeTurn(s,-9),.001,mode);assert.equal(s.body[0],71);assert.equal(s.dead,false);assert.equal(s.graceLeft,null);
+ }
+});
 test('holding the current direction cannot swallow a new turn',()=>{let s=createSnakeRun();for(let i=0;i<10;i++)s=enqueueSnakeTurn(s,1);assert.deepEqual(s.turns,[]);s=enqueueSnakeTurn(s,-9);assert.deepEqual(s.turns,[-9]);});
 test('two quick turns are buffered and executed in order',()=>{let s={...createSnakeRun(),body:[13],trail:[13],running:true};s=enqueueSnakeTurn(s,-9);s=enqueueSnakeTurn(s,1);assert.deepEqual(s.turns,[-9,1]);s=advanceSnakeClock(s,.4);assert.equal(s.body[0],4);s=advanceSnakeClock(s,.4);assert.equal(s.body[0],5);assert.equal(s.dead,false);});
 test('wall warning gives a 300 ms rescue window without crossing the wall',()=>{let s={...createSnakeRun(),body:[80,79,78],trail:[78,79,80],running:true};s=advanceSnakeClock(s,.4);assert.equal(s.body[0],80);assert.equal(s.dead,false);assert.equal(s.graceLeft,.3);s=advanceSnakeClock(s,.25);s=enqueueSnakeTurn(s,-9);s=advanceSnakeClock(s,.001);assert.equal(s.body[0],71);assert.equal(s.graceLeft,null);assert.equal(s.dead,false);});
