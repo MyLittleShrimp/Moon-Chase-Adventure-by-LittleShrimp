@@ -75,9 +75,10 @@ export async function startGameServer({ root = directory, port = 4188, attempts 
 
 function openBrowser(url) {
   const command = process.platform === 'win32' ? 'cmd.exe' : process.platform === 'darwin' ? 'open' : 'xdg-open';
-  const args = process.platform === 'win32' ? ['/d', '/s', '/c', `start "" "${url}"`] : [url];
+  const args = process.platform === 'win32' ? ['/d', '/c', 'start', '', url] : [url];
   const child = spawn(command, args, { windowsHide: true, stdio: 'ignore' });
   child.on('error', () => console.log(`请手动打开：${url}`));
+  child.on('exit', code => { if (code) console.log(`请手动打开：${url}`); });
   child.unref();
 }
 
