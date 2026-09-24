@@ -1,4 +1,4 @@
-import{createSnakeRun,enqueueSnakeTurn,advanceSnakeClock,SNAKE_MODES,SNAKE_BLOCKS,SNAKE_BEACONS,scrambleTraffic,slideVehicle,pipeSolution,ROTATE_MASK,tracePipes,BOX_START,BOX_WALLS,BOX_TARGETS,pushBox,boxesWon,toggleCircuit,MIRRORS,traceLight,flightGate}from './rules.js';
+import{createSnakeRun,enqueueSnakeTurn,advanceSnakeClock,SNAKE_MODES,SNAKE_BLOCKS,SNAKE_BEACONS,scrambleTraffic,slideVehicle,trafficSlideLimits,pipeSolution,ROTATE_MASK,tracePipes,BOX_START,BOX_WALLS,BOX_TARGETS,pushBox,boxesWon,toggleCircuit,MIRRORS,traceLight,flightGate}from './rules.js';
 import{drawDrone}from './world.js';
 import{QUIZ_BANK,QUIZ_PASS_COUNT,QUIZ_ROUND_SIZE,createQuizRun,answerQuiz,nextQuizQuestion}from './quiz.js';
 export function createPuzzles(api){
@@ -7,7 +7,21 @@ export function createPuzzles(api){
  function frame(k,t,instructions,body){open(`${header(k,t,instructions)}${body}<div class="puzzle-status" id="pstatus" role="status"></div><div class="puzzle-toolbar"><button class="secondary-button" id="reset-puzzle">重试本关</button><button class="secondary-button" id="leave-puzzle">返回场景</button></div>`);$('#leave-puzzle').onclick=close;sound('task_start');}
  function status(t){$('#pstatus').textContent=t;}
  function win(id,score,next,message){setTick(null);setKeys(null);loop(null);sound(({assembly:'core_powerup',calibration:'projector_on',flight:'drone_land'})[id]||'puzzle_success');const r=document.createElement('div');r.className='puzzle-result';r.innerHTML=`<strong>挑战完成</strong><p>${message}</p><button class="gold-button" id="complete-puzzle">${api.isReplay()?'保存成绩 · 返回场景':'继续冒险'} →</button>`;$('#modal').append(r);$('#complete-puzzle').onclick=()=>api.complete(id,score,next,message);$('#modal').querySelectorAll('.board button,.vehicle,#undo,#test-flow,#test-light,.dpad button').forEach(b=>b.disabled=true);$('#complete-puzzle').focus();}
- function dpad(move,ignoreRepeat=false){$('#dpad').innerHTML='<button data-dir="up" aria-label="向上">↑</button><button data-dir="left" aria-label="向左">←</button><button data-dir="down" aria-label="向下">↓</button><button data-dir="right" aria-label="向右">→</button>';$('#dpad').querySelectorAll('button').forEach(b=>b.onclick=()=>move(b.dataset.dir));setKeys((k,repeat)=>{if(dirKey[k]&&!(ignoreRepeat&&repeat))move(dirKey[k]);});}
+ function dpad(move,ignoreRepeat=false){
+  const pad=$('#dpad'),toolbar=$('#modal .puzzle-toolbar'),controls=document.createElement('div'),actions=document.createElement('div');
+  controls.className='puzzle-controls';actions.className='puzzle-actions';
+  if($('#undo'))actions.append($('#undo'));
+  actions.append(...toolbar.children);controls.append(actions,pad);toolbar.replaceWith(controls);
+  pad.setAttribute('role','group');pad.setAttribute('aria-label','方向控制');
+  pad.innerHTML='<button data-dir="up" aria-label="向上">↑</button><button data-dir="left" aria-label="向左">←</button><button data-dir="down" aria-label="向下">↓</button><button data-dir="right" aria-label="向右">→</button>';
+  pad.querySelectorAll('button').forEach(b=>{
+   b.onpointerdown=e=>{if(!e.isPrimary||e.button!==0||b.disabled)return;e.preventDefault();b.setPointerCapture(e.pointerId);b.classList.add('pressed');move(b.dataset.dir);};
+   b.onpointerup=b.onpointercancel=b.onlostpointercapture=()=>b.classList.remove('pressed');
+   // Pointer input is handled on press; keyboard and assistive clicks still work once.
+   b.onclick=e=>{if(e.detail===0)move(b.dataset.dir);};
+  });
+  setKeys((k,repeat)=>{if(dirKey[k]&&!(ignoreRepeat&&repeat))move(dirKey[k]);});
+ }
  let lastQuizIds=[];
  function quiz(){
   frame('博物馆前庭 / 文博知识','以学识，叩开馆门',`题库共 ${QUIZ_BANK.length} 题，每轮随机抽 ${QUIZ_ROUND_SIZE} 题。答对 ${QUIZ_PASS_COUNT} 题即可通关，无需连续答对，也没有倒计时。`,'<section class="quiz-card" id="quiz-card" aria-label="文博知识问答"></section>');
@@ -28,16 +42,51 @@ export function createPuzzles(api){
   const arrows={'-1':'←','1':'→','-9':'↑','9':'↓'};
   function render(){[...board.children].forEach((el,i)=>{el.classList.toggle('snake-body',s.body.includes(i));el.classList.toggle('snake-head',s.body[0]===i);el.classList.toggle('trail',s.trail.includes(i)&&!s.body.includes(i));el.textContent=s.body[0]===i?arrows[s.turns[0]??s.direction]:i===8?'出':SNAKE_BEACONS.includes(i)&&!s.collected.includes(i)?'◇':'';});board.classList.toggle('collision-warning',s.graceLeft!==null&&!s.dead);status(s.graceLeft!==null&&!s.dead?'前方有障碍 · 现在转向还能避开':`${fast?'挑战':'舒缓'} · 信标 ${s.collected.length}/3 · 航线 ${s.trail.length-1} 格${s.turns.length?' · 已接收 '+s.turns.map(d=>arrows[d]).join(' '):''}`);}
   dpad(d=>{if(done)return;s=enqueueSnakeTurn(s,{left:-1,right:1,up:-9,down:9}[d]);render();},true);
-  $('#launch-snake').onclick=()=>{$('#modal').querySelector('p').hidden=true;$('#modal').querySelector('.mode-select').hidden=true;$('#launch-snake').hidden=true;$('#modal').scrollTop=0;s={...s,running:true};};$('#normal-snake').onclick=()=>snake(false);$('#fast-snake').onclick=()=>snake(true);$(fast?'#fast-snake':'#normal-snake').classList.add('selected');$('#reset-puzzle').onclick=()=>snake(fast);render();
+  $('#launch-snake').onclick=()=>{$('#modal').querySelector('p').hidden=true;$('#modal').querySelector('.mode-select').hidden=true;$('#launch-snake').hidden=true;$('#modal').scrollTop=$('#modal').scrollHeight;s={...s,running:true};};$('#normal-snake').onclick=()=>snake(false);$('#fast-snake').onclick=()=>snake(true);$(fast?'#fast-snake':'#normal-snake').classList.add('selected');$('#reset-puzzle').onclick=()=>snake(fast);render();
   setTick(dt=>{if(!s.running||done)return;const before=s;s=advanceSnakeClock(s,dt,mode);if(s.graceLeft!==null&&before.graceLeft===null)sound('collision_warning');if(s.collected.length>before.collected.length)sound('snake_beacon');render();if(s.dead){done=true;board.classList.remove('collision-warning');status('没来得及避开。可以提前转向，或在障碍前的停顿中补救。');sound('soft_failure');return;}if(s.won){done=true;win('snake',s.trail.length-1,1,`已将 ${s.trail.length-1} 格轨迹保存为城市航线。`);}});
  }
 
  function traffic(){
-  frame('智慧交通 / 车阵华容道','给月光运输车让路','选中车辆，再沿车身方向移动。金色运输车驶到右侧出口即可通关；其他车辆只能沿自身方向滑动。','<div class="traffic-exit">出口 →</div><div id="traffic-board" class="traffic-board"></div><div class="dpad" id="dpad"></div><button class="secondary-button" id="undo">撤回一步</button>');
-  let board=scrambleTraffic(127),selected=0,moves=0,history=[],done=false;
-  function render(){const el=$('#traffic-board');el.innerHTML=board.map((v,i)=>`<button class="vehicle ${i===0?'cargo':''} ${i===selected?'selected':''}" style="left:${v.x/6*100}%;top:${v.y/6*100}%;width:${(v.h?v.n:1)/6*100}%;height:${(v.h?1:v.n)/6*100}%" aria-label="${i===0?'月光运输车':'车辆 '+i}，${v.h?'横向':'纵向'}" data-car="${i}">${i===0?'月光':String.fromCharCode(64+i)}<small>${v.h?'↔':'↕'}</small></button>`).join('');el.querySelectorAll('button').forEach(b=>b.onclick=()=>{selected=+b.dataset.car;render();});status(`移动 ${moves} 格 · 挑战目标 ≤ 24 格`);$('#undo').disabled=!history.length||done;}
-  dpad(d=>{if(done)return;const v=board[selected],delta=d==='left'||d==='up'?-1:1;if(v.h!==['left','right'].includes(d)){status('这辆车只能沿自身方向移动。');return;}const next=slideVehicle(board,selected,delta);if(!next){status('前方被挡住了，先移开其他车辆。');return;}history.push({board,moves});board=next;moves++;sound('vehicle_slide');render();if(board[0].x===4){done=true;win('traffic',moves,2,`车阵已疏通，共移动 ${moves} 格。`);}});
-  $('#undo').onclick=()=>{if(done||!history.length)return;({board,moves}=history.pop());render();};$('#reset-puzzle').onclick=traffic;render();
+  frame('智慧交通 / 车阵华容道','给月光运输车让路','按住车辆，沿车身箭头拖动；也可选中后用方向键移动。让金色月光车沿当前这一行向右驶出。','<div class="traffic-layout"><div id="traffic-board" class="traffic-board" aria-label="六乘六车阵，出口在第三行右侧"></div><div class="traffic-exit" aria-label="第三行向右出口"><span>出<br>口</span><b aria-hidden="true">→</b></div></div><div class="dpad" id="dpad"></div><button class="secondary-button" id="undo">撤回一步</button>');
+  let board=scrambleTraffic(127),selected=0,moves=0,history=[],done=false,drag=null;
+  const el=$('#traffic-board');
+  el.innerHTML=board.map((v,i)=>`<button class="vehicle ${i===0?'cargo':''}" aria-label="${i===0?'月光运输车':'车辆 '+i}，${v.h?'横向':'纵向'}，可拖动" data-car="${i}">${i===0?'月光':String.fromCharCode(64+i)}<small>${v.h?'↔':'↕'}</small></button>`).join('');
+  function render(){
+   board.forEach((v,i)=>{const b=el.children[i];Object.assign(b.style,{left:`${v.x/6*100}%`,top:`${v.y/6*100}%`,width:`${(v.h?v.n:1)/6*100}%`,height:`${(v.h?1:v.n)/6*100}%`});b.classList.toggle('selected',i===selected);b.setAttribute('aria-pressed',String(i===selected));});
+   status(`移动 ${moves} 格 · 挑战目标 ≤ 24 格`);$('#undo').disabled=!history.length||done;
+  }
+  function move(delta){
+   if(done||!delta)return;const next=slideVehicle(board,selected,delta);
+   if(!next){status('前方被挡住了，先移开其他车辆。');return;}
+   history.push({board,moves});board=next;moves+=Math.abs(delta);sound('vehicle_slide');render();
+   if(board[0].x===4){done=true;win('traffic',moves,2,`车阵已疏通，共移动 ${moves} 格。`);}
+  }
+  function preview(e){
+   if(!drag||e.pointerId!==drag.id)return;
+   const offset=drag.horizontal?e.clientX-drag.x:e.clientY-drag.y;
+   drag.moved ||= Math.abs(offset)>5;
+   drag.offset=drag.moved?Math.max(drag.min*drag.cell,Math.min(drag.max*drag.cell,offset)):0;
+   drag.button.style.transform=`translate${drag.horizontal?'X':'Y'}(${drag.offset}px)`;
+  }
+  function finish(e,cancelled=false){
+   if(!drag||e.pointerId!==drag.id)return;if(!cancelled)preview(e);
+   const current=drag;drag=null;current.button.style.transform='';current.button.classList.remove('dragging');
+   if(current.button.hasPointerCapture(current.id))current.button.releasePointerCapture(current.id);
+   if(cancelled||done)return;
+   const delta=Math.sign(current.offset)*Math.round(Math.abs(current.offset)/current.cell);
+   if(delta)move(delta);else if(current.moved&&current.min===0&&current.max===0)status('这辆车暂时被挡住了，先移开其他车辆。');
+  }
+  el.querySelectorAll('button').forEach(b=>{
+   b.onpointerdown=e=>{
+    if(done||drag||!e.isPrimary||e.button!==0)return;e.preventDefault();selected=+b.dataset.car;render();
+    drag={id:e.pointerId,button:b,x:e.clientX,y:e.clientY,horizontal:board[selected].h,cell:el.clientWidth/6,...trafficSlideLimits(board,selected),offset:0,moved:false};
+    b.setPointerCapture(e.pointerId);b.classList.add('dragging');
+   };
+   b.onpointermove=preview;b.onpointerup=e=>finish(e);b.onpointercancel=b.onlostpointercapture=e=>finish(e,true);
+   b.onclick=()=>{if(!done&&!drag){selected=+b.dataset.car;render();}};
+  });
+  dpad(d=>{if(done||drag)return;const v=board[selected];if(v.h!==['left','right'].includes(d)){status('这辆车只能沿自身方向移动。');return;}move(d==='left'||d==='up'?-1:1);});
+  $('#undo').onclick=()=>{if(done||drag||!history.length)return;({board,moves}=history.pop());render();};$('#reset-puzzle').onclick=traffic;render();
  }
  function water(){
   frame('智慧水务 / 管网接通','让水流找到出口','点击管件顺时针旋转。连接左下方入口与右上方出口，连通的水路不能漏水；多余管件可以留在外面。','<div class="board-labels"><span>左下：进水 →</span><span>右上：出水 →</span></div><div id="pipe-board" class="board pipe-board"></div><button class="gold-button" id="test-flow">试水</button>');
