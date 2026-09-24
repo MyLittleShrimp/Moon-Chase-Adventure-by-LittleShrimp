@@ -4,7 +4,8 @@
 
 ## 文件范围
 
-- `dist/assets/*.png`：游戏实际使用的场景、角色及物件图片。
+- `dist/assets/*.png`：保留的场景、角色及物件原图，也用于加载回退。
+- `dist/assets/web/*.webp`：优先使用的网页轻量图片；按实际画布大小生成，保留精灵裁切所需尺寸。
 - `dist/assets/audio/bgm/`：主主题及四首随机循环曲目。
 - `dist/assets/audio/sfx/`：25 种交互、任务、环境与剧情音效。
 - `dist/assets/video/`：两段适配网页的动画及首帧封面。

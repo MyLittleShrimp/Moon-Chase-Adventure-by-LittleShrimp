@@ -4,7 +4,7 @@
 
 - Node.js 24 或更新版本；交付时使用 Node.js 24.14。
 - `npm start`：启动静态预览，默认端口 4188。
-- `npm test`：运行 42 项自动测试。
+- `npm test`：运行 48 项自动测试。
 - 无 npm 第三方依赖、无构建过程。`dist/` 是可编辑的源码，不能加入忽略列表。
 - 如果 4188 被其他项目占用，可通过环境变量 `PORT` 指定其他端口；Windows PowerShell 示例：`$env:PORT=4189`，再执行 `npm start`。
 
@@ -39,3 +39,5 @@ node tests/preview-server.js
 将 `dist/` 的内容作为静态网站根目录。游戏不需要数据库、登录接口或服务器业务逻辑。请保留素材子目录，支持 JS Modules 与正确媒体 MIME 类型；正式域名建议使用 HTTPS。
 
 发布后检查：首次进入、动画载入与跳过、八种挑战、手机操作、静音与失焦、存档恢复、分支结局及隐藏收集。宣传片和截图位于 `docs/media/`，无需一起部署到游戏网站。
+
+手机启动、图片超时与管线绘制的维护说明见 [手机兼容性记录](MOBILE_COMPATIBILITY.md)。启动入口是 `boot.js`，地图由 `images.js` 按需加载。

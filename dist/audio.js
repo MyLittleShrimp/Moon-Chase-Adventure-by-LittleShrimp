@@ -1,5 +1,6 @@
 export const MUSIC = ['main-theme', 'soundtrack-1', 'soundtrack-2', 'soundtrack-3', 'soundtrack-4'];
 export const SOUND_NAMES = ['box_on_target','box_push','chest_open','collision_warning','core_powerup','drone_hit','drone_hover_loop','drone_land','drone_takeoff','gift_unlock','item_gain','mechanism_click','moon_return','painting_reveal','projector_on','puzzle_success','quiz_correct','quiz_wrong','snake_beacon','soft_failure','task_start','ui_back','ui_confirm','vehicle_slide','water_drain'];
+export function availableStorage(){try{return globalThis.localStorage;}catch{return null;}}
 
 // Main theme opens each play session; subsequent rounds contain every other track once.
 export class MusicQueue {
@@ -20,7 +21,7 @@ export class MusicQueue {
 }
 
 export class GameAudio {
-  constructor({music, onChange = () => {}, storage = globalThis.localStorage, contextFactory = () => new (window.AudioContext || window.webkitAudioContext)()} = {}) {
+  constructor({music, onChange = () => {}, storage = availableStorage(), contextFactory = () => new (window.AudioContext || window.webkitAudioContext)()} = {}) {
     this.music = music;
     this.storage = storage;
     this.contextFactory = contextFactory;

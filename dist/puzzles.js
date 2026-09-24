@@ -101,8 +101,9 @@ export function createPuzzles(api){
  function water(){
   frame('智慧水务 / 管网接通','让水流找到出口','点击管件顺时针旋转。连接左下方入口与右上方出口，连通的水路不能漏水；多余管件可以留在外面。','<div class="board-labels"><span>左下：进水 →</span><span>右上：出水 →</span></div><div id="pipe-board" class="board pipe-board"></div><button class="gold-button" id="test-flow">试水</button>');
   let board=pipeSolution().map((m,i)=>{for(let r=0;r<(i*7+2)%4;r++)m=ROTATE_MASK(m);return m;}),moves=0,done=false,wet=[];
-  const glyph={3:'└',5:'│',6:'┌',9:'┘',10:'─',12:'┐'};
-  function render(){const el=$('#pipe-board');el.innerHTML=board.map((m,i)=>`<button class="tile pipe ${wet.includes(i)?'wet':''} ${i===20||i===4?'endpoint':''}" data-pipe="${i}" aria-label="管件 ${i+1}，${glyph[m]}">${glyph[m]}</button>`).join('');el.querySelectorAll('button').forEach(b=>b.onclick=()=>{if(done)return;const i=+b.dataset.pipe;board[i]=ROTATE_MASK(board[i]);sound('mechanism_click');moves++;wet=[];render();});status(`旋转 ${moves} 次 · 点击试水检查连接`);}
+  const ends=[[1,'上',50,0],[2,'右',100,50],[4,'下',50,100],[8,'左',0,50]];
+  const pipeSvg=m=>`<svg viewBox="0 0 100 100" aria-hidden="true" focusable="false"><path d="${ends.filter(([bit])=>m&bit).map(([, ,x,y])=>`M50 50L${x} ${y}`).join(' ')}"/></svg>`;
+  function render(){const el=$('#pipe-board');el.innerHTML=board.map((m,i)=>`<button class="tile pipe ${wet.includes(i)?'wet':''} ${i===20||i===4?'endpoint':''}" data-pipe="${i}" aria-label="管件 ${i+1}，连接${ends.filter(([bit])=>m&bit).map(([,label])=>label).join('、')}，点击旋转">${pipeSvg(m)}</button>`).join('');el.querySelectorAll('button').forEach(b=>b.onclick=()=>{if(done)return;const i=+b.dataset.pipe;board[i]=ROTATE_MASK(board[i]);sound('mechanism_click');moves++;wet=[];render();});status(`旋转 ${moves} 次 · 点击试水检查连接`);}
   $('#test-flow').onclick=()=>{if(done)return;const r=tracePipes(board);wet=r.visited;render();if(r.won){done=true;win('water',moves,3,`石桥通路恢复。共旋转 ${moves} 次。`);}else status(r.leak===false?'水路还没有连到出口。':`第 ${Number(r.leak)+1} 个管件连接中断，请检查接口。`);};$('#reset-puzzle').onclick=water;render();
  }
  function factory(){
